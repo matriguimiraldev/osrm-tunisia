@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSRM Route Tester – Tunisia</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #16213e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      color: #e94560;
+      letter-spacing: 1px;
+    }
+
+    header span {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 340px;
+      background: #16213e;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      border-right: 2px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #e94560;
+      margin-bottom: 4px;
+    }
+
+    .coord-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .coord-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .coord-row label {
+      font-size: 0.75rem;
+      color: #aaa;
+      width: 28px;
+      padding-top: 0;
+      flex-shrink: 0;
+    }
+
+    .coord-row input {
+      flex: 1;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 7px 10px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .coord-row input:focus {
+      border-color: #e94560;
+    }
+
+    .hint {
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: -4px;
+    }
+
+    /* Profile selector */
+    .profile-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .profile-btn {
+      flex: 1;
+      padding: 7px;
+      border: 1px solid #1a4a8a;
+      border-radius: 6px;
+      background: #0f3460;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .profile-btn.active,
+    .profile-btn:hover {
+      background: #e94560;
+      border-color: #e94560;
+      color: #fff;
+    }
+
+    /* URL preview */
+    .url-preview {
+      background: #0a1628;
+      border: 1px solid #1a4a8a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.7rem;
+      color: #4fc3f7;
+      word-break: break-all;
+      font-family: monospace;
+      min-height: 40px;
+    }
+
+    /* Buttons */
+    .btn-route {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-route:hover { background: #c73652; }
+    .btn-route:active { transform: scale(0.98); }
+
+    .btn-clear {
+      background: transparent;
+      color: #888;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-clear:hover { border-color: #e94560; color: #e94560; }
+
+    /* Add waypoint button */
+    .btn-add-wp {
+      background: transparent;
+      color: #4fc3f7;
+      border: 1px dashed #4fc3f7;
+      border-radius: 8px;
+      padding: 7px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn-add-wp:hover {
+      background: #0f3460;
+      border-style: solid;
+    }
+
+    /* Waypoint item */
+    .waypoint-item {
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+
+    .waypoint-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .waypoint-label {
+      font-size: 0.72rem;
+      color: #f0a500;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-remove-wp {
+      background: transparent;
+      border: none;
+      color: #e94560;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 2px;
+      transition: color 0.2s;
+    }
+
+    .btn-remove-wp:hover { color: #ff6b6b; }
+
+    /* Info panel */
+    .info-panel {
+      background: #0f3460;
+      border-radius: 8px;
+      padding: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-panel.visible { display: flex; }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-label { font-size: 0.75rem; color: #aaa; }
+    .info-value { font-size: 0.95rem; font-weight: 700; color: #4fc3f7; }
+
+    /* Raw JSON */
+    .json-box {
+      background: #0a1628;
+      border: 1px solid #1a4a8a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.65rem;
+      color: #81c784;
+      font-family: monospace;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .json-box.visible { display: block; }
+
+    /* Error */
+    .error-box {
+      background: #3e1a1a;
+      border: 1px solid #e94560;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: #ff8a80;
+      display: none;
+    }
+
+    .error-box.visible { display: block; }
+
+    /* Map */
+    #map {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+    }
+
+    /* Click-to-set hint */
+    .map-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22,33,62,0.9);
+      color: #aaa;
+      font-size: 0.72rem;
+      padding: 5px 12px;
+      border-radius: 20px;
+      pointer-events: none;
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 3px solid #ffffff44;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    .spinner.visible { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toggle JSON */
+    .toggle-json {
+      font-size: 0.7rem;
+      color: #4fc3f7;
+      cursor: pointer;
+      text-decoration: underline;
+      text-align: right;
+    }
+
+    /* Waypoints section */
+    #waypointsSection {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e94560" stroke-width="2">
+    <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+  </svg>
+  <h1>OSRM Route Tester</h1>
+  <span>OSRM · Tunisia</span>
+</header>
+
+<div class="main">
+
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+
+    <!-- Profile -->
+    <div>
+      <div class="section-title">Profile</div>
+      <div class="profile-row">
+        <div class="profile-btn active" data-profile="driving">🚗 Driving</div>
+        <div class="profile-btn" data-profile="cycling">🚲 Cycling</div>
+        <div class="profile-btn" data-profile="foot">🚶 Foot</div>
+      </div>
+    </div>
+
+    <!-- Start -->
+    <div class="coord-group">
+      <div class="section-title">📍 Start point</div>
+      <div class="coord-row">
+        <label>Lon</label>
+        <input type="number" id="startLon" step="0.0001" value="10.76591" placeholder="Longitude" />
+      </div>
+      <div class="coord-row">
+        <label>Lat</label>
+        <input type="number" id="startLat" step="0.0001" value="34.76144" placeholder="Latitude" />
+      </div>
+      <div class="hint">💡 Click on the map to set start (first click)</div>
+    </div>
+
+    <!-- Waypoints -->
+    <div id="waypointsSection"></div>
+
+    <!-- Add waypoint button -->
+    <button class="btn-add-wp" id="btnAddWaypoint">＋ Add waypoint</button>
+
+    <!-- End -->
+    <div class="coord-group">
+      <div class="section-title">🏁 End point</div>
+      <div class="coord-row">
+        <label>Lon</label>
+        <input type="number" id="endLon" step="0.0001" value="10.73999" placeholder="Longitude" />
+      </div>
+      <div class="coord-row">
+        <label>Lat</label>
+        <input type="number" id="endLat" step="0.0001" value="34.74875" placeholder="Latitude" />
+      </div>
+      <div class="hint">💡 Last click sets end point</div>
+    </div>
+
+    <!-- URL preview -->
+    <div>
+      <div class="section-title">API URL</div>
+      <div class="url-preview" id="urlPreview">–</div>
+    </div>
+
+    <!-- Actions -->
+    <button class="btn-route" id="btnRoute">
+      <span id="btnLabel">▶ Calculate Route</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+    <button class="btn-clear" id="btnClear">✕ Clear map</button>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Info -->
+    <div class="info-panel" id="infoPanel">
+      <div class="section-title">Route Info</div>
+      <div class="info-row">
+        <span class="info-label">Distance</span>
+        <span class="info-value" id="infoDistance">–</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Duration</span>
+        <span class="info-value" id="infoDuration">–</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Steps</span>
+        <span class="info-value" id="infoSteps">–</span>
+      </div>
+      <div class="toggle-json" id="toggleJson">Show raw JSON ▾</div>
+    </div>
+
+    <!-- Raw JSON -->
+    <div class="json-box" id="jsonBox"></div>
+
+  </div>
+
+  <!-- ── Map ── -->
+  <div style="position:relative; flex:1; min-width:0; min-height:0; height:100%;">
+    <div id="map"></div>
+    <div class="map-hint" id="mapHint">Click on map to set 📍 Start point</div>
+  </div>
+
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Polyline decoder (OSRM uses encoded polyline) -->
+<script src="https://unpkg.com/@mapbox/polyline@1.2.1/src/polyline.js"></script>
+
+<script>
+  // ── Map init ──────────────────────────────────────────────
+  const map = L.map('map', { preferCanvas: true }).setView([34.75, 10.75], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
+  setTimeout(() => map.invalidateSize(), 100);
+  window.addEventListener('resize', () => map.invalidateSize());
+
+  // ── State ─────────────────────────────────────────────────
+  // clickStep: 0 = set start, 1..N = set waypoint[i-1], N+1 = set end
+  let clickStep = 0;
+  let startMarker = null, endMarker = null, routeLayer = null;
+  let currentProfile = 'driving';
+  let jsonVisible = false;
+
+  // Waypoints: array of { lon, lat, marker, id }
+  let waypoints = [];
+  let wpCounter = 0;
+
+  // ── Custom icons ──────────────────────────────────────────
+  const iconStart = L.divIcon({
+    className: '',
+    html: `<div style="background:#4caf50;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px #0008;"></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
+  });
+
+  const iconEnd = L.divIcon({
+    className: '',
+    html: `<div style="background:#e94560;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px #0008;"></div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
+  });
+
+  function makeWpIcon(index) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="background:#f0a500;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px #0008;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#000;">${index + 1}</div>`,
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function getInputs() {
+    return {
+      startLon: parseFloat(document.getElementById('startLon').value),
+      startLat: parseFloat(document.getElementById('startLat').value),
+      endLon:   parseFloat(document.getElementById('endLon').value),
+      endLat:   parseFloat(document.getElementById('endLat').value),
+    };
+  }
+
+  function buildUrl(profile, sLon, sLat, eLon, eLat) {
+    const base = 'http://localhost:5000';
+    // Build coordinate chain: start ; wp1 ; wp2 ; ... ; end
+    const wpPart = waypoints
+      .filter(wp => !isNaN(wp.lon) && !isNaN(wp.lat))
+      .map(wp => `${wp.lon},${wp.lat}`)
+      .join(';');
+    const coords = wpPart
+      ? `${sLon},${sLat};${wpPart};${eLon},${eLat}`
+      : `${sLon},${sLat};${eLon},${eLat}`;
+    return `${base}/route/v1/${profile}/${coords}?overview=full&geometries=polyline&steps=true`;
+  }
+
+  function updateUrlPreview() {
+    const { startLon, startLat, endLon, endLat } = getInputs();
+    if ([startLon, startLat, endLon, endLat].some(isNaN)) {
+      document.getElementById('urlPreview').textContent = '– (fill coordinates)';
+      return;
+    }
+    document.getElementById('urlPreview').textContent = buildUrl(currentProfile, startLon, startLat, endLon, endLat);
+  }
+
+  function formatDistance(meters) {
+    return meters >= 1000
+      ? (meters / 1000).toFixed(2) + ' km'
+      : Math.round(meters) + ' m';
+  }
+
+  function formatDuration(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m > 0 ? `${m} min ${s} s` : `${s} s`;
+  }
+
+  function setLoading(on) {
+    document.getElementById('btnLabel').style.display = on ? 'none' : 'inline';
+    document.getElementById('spinner').classList.toggle('visible', on);
+    document.getElementById('btnRoute').disabled = on;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorBox');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function hideError() {
+    document.getElementById('errorBox').classList.remove('visible');
+  }
+
+  function placeStartMarker(lat, lon) {
+    if (startMarker) map.removeLayer(startMarker);
+    startMarker = L.marker([lat, lon], { icon: iconStart })
+      .bindPopup(`<b>Start</b><br>Lon: ${lon}<br>Lat: ${lat}`)
+      .addTo(map);
+    document.getElementById('startLon').value = lon.toFixed(5);
+    document.getElementById('startLat').value = lat.toFixed(5);
+    updateUrlPreview();
+  }
+
+  function placeEndMarker(lat, lon) {
+    if (endMarker) map.removeLayer(endMarker);
+    endMarker = L.marker([lat, lon], { icon: iconEnd })
+      .bindPopup(`<b>End</b><br>Lon: ${lon}<br>Lat: ${lat}`)
+      .addTo(map);
+    document.getElementById('endLon').value = lon.toFixed(5);
+    document.getElementById('endLat').value = lat.toFixed(5);
+    updateUrlPreview();
+  }
+
+  function placeWaypointMarker(wpIndex, lat, lon) {
+    const wp = waypoints[wpIndex];
+    if (!wp) return;
+    if (wp.marker) map.removeLayer(wp.marker);
+    wp.lat = lat;
+    wp.lon = lon;
+    wp.marker = L.marker([lat, lon], { icon: makeWpIcon(wpIndex) })
+      .bindPopup(`<b>Waypoint ${wpIndex + 1}</b><br>Lon: ${lon}<br>Lat: ${lat}`)
+      .addTo(map);
+    // Update inputs in sidebar
+    const lonInput = document.getElementById(`wpLon_${wp.id}`);
+    const latInput = document.getElementById(`wpLat_${wp.id}`);
+    if (lonInput) lonInput.value = lon.toFixed(5);
+    if (latInput) latInput.value = lat.toFixed(5);
+    updateUrlPreview();
+  }
+
+  // Refresh all waypoint marker icons (after a waypoint is removed, indices shift)
+  function refreshWaypointIcons() {
+    waypoints.forEach((wp, i) => {
+      if (wp.marker) {
+        wp.marker.setIcon(makeWpIcon(i));
+        wp.marker.setPopupContent(`<b>Waypoint ${i + 1}</b><br>Lon: ${wp.lon}<br>Lat: ${wp.lat}`);
+      }
+    });
+  }
+
+  function clearAll() {
+    if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+    if (endMarker)   { map.removeLayer(endMarker);   endMarker   = null; }
+    if (routeLayer)  { map.removeLayer(routeLayer);  routeLayer  = null; }
+    // Remove all waypoint markers
+    waypoints.forEach(wp => { if (wp.marker) map.removeLayer(wp.marker); });
+    waypoints = [];
+    document.getElementById('waypointsSection').innerHTML = '';
+    document.getElementById('infoPanel').classList.remove('visible');
+    document.getElementById('jsonBox').classList.remove('visible');
+    document.getElementById('jsonBox').textContent = '';
+    hideError();
+    clickStep = 0;
+    updateHint();
+    updateUrlPreview();
+  }
+
+  // ── Waypoint UI ───────────────────────────────────────────
+  function addWaypointUI(wpIndex, wpId) {
+    const section = document.getElementById('waypointsSection');
+    const div = document.createElement('div');
+    div.className = 'waypoint-item';
+    div.id = `wpItem_${wpId}`;
+    div.innerHTML = `
+      <div class="waypoint-header">
+        <span class="waypoint-label">📌 Waypoint ${wpIndex + 1}</span>
+        <button class="btn-remove-wp" title="Remove waypoint" onclick="removeWaypoint('${wpId}')">✕</button>
+      </div>
+      <div class="coord-row">
+        <label>Lon</label>
+        <input type="number" id="wpLon_${wpId}" step="0.0001" placeholder="Longitude" />
+      </div>
+      <div class="coord-row">
+        <label>Lat</label>
+        <input type="number" id="wpLat_${wpId}" step="0.0001" placeholder="Latitude" />
+      </div>
+    `;
+    section.appendChild(div);
+
+    // Listen for manual input changes
+    document.getElementById(`wpLon_${wpId}`).addEventListener('input', () => syncWaypointFromInput(wpId));
+    document.getElementById(`wpLat_${wpId}`).addEventListener('input', () => syncWaypointFromInput(wpId));
+  }
+
+  function syncWaypointFromInput(wpId) {
+    const wp = waypoints.find(w => w.id === wpId);
+    if (!wp) return;
+    const lon = parseFloat(document.getElementById(`wpLon_${wpId}`).value);
+    const lat = parseFloat(document.getElementById(`wpLat_${wpId}`).value);
+    if (!isNaN(lon) && !isNaN(lat)) {
+      wp.lon = lon;
+      wp.lat = lat;
+      const idx = waypoints.indexOf(wp);
+      if (wp.marker) map.removeLayer(wp.marker);
+      wp.marker = L.marker([lat, lon], { icon: makeWpIcon(idx) })
+        .bindPopup(`<b>Waypoint ${idx + 1}</b><br>Lon: ${lon}<br>Lat: ${lat}`)
+        .addTo(map);
+    }
+    updateUrlPreview();
+  }
+
+  function renumberWaypointLabels() {
+    waypoints.forEach((wp, i) => {
+      const item = document.getElementById(`wpItem_${wp.id}`);
+      if (item) {
+        const label = item.querySelector('.waypoint-label');
+        if (label) label.textContent = `📌 Waypoint ${i + 1}`;
+      }
+    });
+  }
+
+  function removeWaypoint(wpId) {
+    const idx = waypoints.findIndex(w => w.id === wpId);
+    if (idx === -1) return;
+    const wp = waypoints[idx];
+    if (wp.marker) map.removeLayer(wp.marker);
+    waypoints.splice(idx, 1);
+    const item = document.getElementById(`wpItem_${wpId}`);
+    if (item) item.remove();
+    renumberWaypointLabels();
+    refreshWaypointIcons();
+    // Adjust clickStep if needed
+    if (clickStep > waypoints.length + 1) clickStep = waypoints.length + 1;
+    updateHint();
+    updateUrlPreview();
+  }
+
+  document.getElementById('btnAddWaypoint').addEventListener('click', () => {
+    const id = 'wp' + (++wpCounter);
+    waypoints.push({ id, lon: NaN, lat: NaN, marker: null });
+    addWaypointUI(waypoints.length - 1, id);
+    // Set clickStep to point to this new waypoint
+    clickStep = waypoints.length; // 1-based: step 1 = wp[0], step N = wp[N-1]
+    updateHint();
+  });
+
+  // ── Hint ──────────────────────────────────────────────────
+  function updateHint() {
+    let msg;
+    if (clickStep === 0) {
+      msg = 'Click on map to set 📍 Start point';
+    } else if (clickStep <= waypoints.length) {
+      msg = `Click on map to set 📌 Waypoint ${clickStep}`;
+    } else {
+      msg = 'Click on map to set 🏁 End point';
+    }
+    document.getElementById('mapHint').textContent = msg;
+  }
+
+  // ── Map click ─────────────────────────────────────────────
+  map.on('click', function (e) {
+    const { lat, lng } = e.latlng;
+    if (clickStep === 0) {
+      placeStartMarker(lat, lng);
+      // Move to first waypoint if any, else to end
+      clickStep = waypoints.length > 0 ? 1 : waypoints.length + 1;
+    } else if (clickStep <= waypoints.length) {
+      placeWaypointMarker(clickStep - 1, lat, lng);
+      clickStep++;
+      if (clickStep > waypoints.length) {
+        // All waypoints set, next is end
+        // clickStep is now waypoints.length + 1 which means "set end"
+      }
+    } else {
+      // Set end
+      placeEndMarker(lat, lng);
+      clickStep = 0; // cycle back to start
+    }
+    updateHint();
+  });
+
+  // ── Profile buttons ───────────────────────────────────────
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentProfile = btn.dataset.profile;
+      updateUrlPreview();
+    });
+  });
+
+  // ── Input change → update URL preview ────────────────────
+  ['startLon','startLat','endLon','endLat'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      updateUrlPreview();
+      const { startLon, startLat, endLon, endLat } = getInputs();
+      if (!isNaN(startLat) && !isNaN(startLon)) placeStartMarker(startLat, startLon);
+      if (!isNaN(endLat)   && !isNaN(endLon))   placeEndMarker(endLat, endLon);
+    });
+  });
+
+  // ── Calculate route ───────────────────────────────────────
+  document.getElementById('btnRoute').addEventListener('click', async () => {
+    hideError();
+    const { startLon, startLat, endLon, endLat } = getInputs();
+
+    if ([startLon, startLat, endLon, endLat].some(isNaN)) {
+      showError('⚠ Please fill in all four coordinates (start & end).');
+      return;
+    }
+
+    const url = buildUrl(currentProfile, startLon, startLat, endLon, endLat);
+    setLoading(true);
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+      const data = await res.json();
+
+      console.log('[OSRM] URL:', url);
+      console.log('[OSRM] Response:', data);
+
+      if (data.code !== 'Ok') {
+        throw new Error(`OSRM error: ${data.code} – ${data.message || ''}`);
+      }
+
+      const route = data.routes[0];
+
+      // Decode polyline (OSRM returns encoded polyline by default)
+      const coords = polyline.decode(route.geometry); // [[lat,lon], ...]
+
+      // Draw route
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.polyline(coords, {
+        color: '#e94560',
+        weight: 5,
+        opacity: 0.85,
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Fit map
+      map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+      // Ensure markers are on top
+      if (startMarker) startMarker.addTo(map);
+      waypoints.forEach(wp => { if (wp.marker) wp.marker.addTo(map); });
+      if (endMarker) endMarker.addTo(map);
+
+      // Info panel
+      document.getElementById('infoDistance').textContent = formatDistance(route.distance);
+      document.getElementById('infoDuration').textContent = formatDuration(route.duration);
+      const steps = route.legs.reduce((acc, leg) => acc + (leg.steps ? leg.steps.length : 0), 0);
+      document.getElementById('infoSteps').textContent = steps;
+      document.getElementById('infoPanel').classList.add('visible');
+
+      // Raw JSON
+      document.getElementById('jsonBox').textContent = JSON.stringify(data, null, 2);
+
+    } catch (err) {
+      showError('❌ ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // ── Clear ─────────────────────────────────────────────────
+  document.getElementById('btnClear').addEventListener('click', clearAll);
+
+  // ── Toggle JSON ───────────────────────────────────────────
+  document.getElementById('toggleJson').addEventListener('click', () => {
+    jsonVisible = !jsonVisible;
+    document.getElementById('jsonBox').classList.toggle('visible', jsonVisible);
+    document.getElementById('toggleJson').textContent = jsonVisible
+      ? 'Hide raw JSON ▴'
+      : 'Show raw JSON ▾';
+  });
+
+  // ── Init ──────────────────────────────────────────────────
+  updateUrlPreview();
+  updateHint();
+
+  // Place default markers from pre-filled inputs
+  placeStartMarker(34.76144, 10.76591);
+  placeEndMarker(34.74875, 10.73999);
+  clickStep = 0;
+  updateHint();
+</script>
+</body>
+</html>

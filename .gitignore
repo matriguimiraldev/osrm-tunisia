@@ -1,0 +1,2 @@
+# Exclude the raw OSM source file (not needed for OSRM routing)
+tunisia-latest.osm.pbf

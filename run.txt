@@ -1,0 +1,3 @@
+python -m http.server 8080 --directory "c:/Users/matri/Desktop/osrm"
+lancer docker  osrm/osrm-backend 5000:5000
+http://localhost:5000/route/v1/driving/10.76591,34.76144;10.73999,34.74875?overview=full&geometries=polyline&steps=true
